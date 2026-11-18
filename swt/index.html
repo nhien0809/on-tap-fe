@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ôn tập SWT301</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f4f5f7;color:#222}
+.wrap{max-width:900px;margin:auto;padding:16px}
+h1{font-size:22px;margin:8px 0 16px}h2{font-size:17px;margin:20px 0 8px}
+button{font:inherit;cursor:pointer;border:1px solid #bbb;background:#fff;border-radius:8px;padding:8px 14px}
+button:hover{background:#eef}.pri{background:#2563eb;color:#fff;border-color:#2563eb}.pri:hover{background:#1d4ed8}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.grid button{text-align:left}.grid small{display:block;color:#666}
+.card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 1px 3px #0002;margin-bottom:12px}
+img.q{width:100%;border:1px solid #ddd;border-radius:6px;display:block}
+.opts{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.opts button{min-width:56px;font-size:18px;font-weight:600}
+.sel{background:#dbeafe!important;border-color:#2563eb}.ok{background:#bbf7d0!important;border-color:#16a34a}.bad{background:#fecaca!important;border-color:#dc2626}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sp{flex:1}
+.msg{font-weight:600;margin:6px 0}.g{color:#16a34a}.r{color:#dc2626}
+.nav{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}.nav span{width:28px;height:24px;font-size:12px;display:grid;place-items:center;border-radius:4px;background:#e5e7eb;cursor:pointer}
+.nav .cur{outline:2px solid #2563eb}.nav .ok{background:#86efac}.nav .bad{background:#fca5a5}
+input[type=number]{width:80px;padding:7px;border:1px solid #bbb;border-radius:8px;font:inherit}
+label{user-select:none}
+</style></head><body><div class="wrap" id="app"></div>
+<script src="data.js"></script>
+<script>
+const SIZE=30, LS='swt_wrong', LB='swt_best';
+const note={47:'Ghi chú nguồn: tất cả đều là đáp án sai nếu theo chuẩn ISTQB.'};
+const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+let wrong=new Set(ld(LS,[])), best=ld(LB,{}), S=null;
+const app=document.getElementById('app'), byP=Object.fromEntries(Q.map(q=>[q.p,q]));
+const shuf=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const L=n=>'ABCDEF'.slice(0,n).split('');
+const isOk=(q,s)=>!q.a||q.a.split('|').includes(s);
+function saveW(){sv(LS,[...wrong])}
+
+function home(){
+  S=null;const n=Math.ceil(Q.length/SIZE);let h=`<h1>Ôn tập SWT301 — ${Q.length} câu</h1><h2>Đề nhỏ (${SIZE} câu/đề)</h2><div class="grid">`;
+  for(let i=0;i<n;i++){const a=i*SIZE+1,b=Math.min(Q.length,(i+1)*SIZE),k='d'+i;
+    h+=`<button onclick="start('d',${i})"><b>Đề ${i+1}</b><small>Câu ${a}–${b}${best[k]!=null?' · Tốt nhất: '+best[k]:''}</small></button>`}
+  h+=`</div><h2>Tổng ôn</h2><div class="bar"><button class="pri" onclick="start('all')">Làm toàn bộ ${Q.length} câu</button>
+  <label><input type="checkbox" id="mix"> Xáo trộn thứ tự</label></div>
+  <h2>Đề random</h2><div class="bar"><input type="number" id="cnt" value="40" min="1" max="${Q.length}"> câu <button class="pri" onclick="start('rand')">Tạo đề</button></div>
+  <h2>Câu làm sai (${wrong.size})</h2><div class="bar">
+  <button ${wrong.size?'':'disabled'} onclick="review()">Đọc lại câu sai</button>
+  <button ${wrong.size?'':'disabled'} onclick="start('wrong')">Làm lại câu sai</button>
+  <button ${wrong.size?'':'disabled'} onclick="if(confirm('Xóa danh sách câu sai?')){wrong.clear();saveW();home()}">Xóa danh sách</button></div>
+  <p style="color:#666;font-size:13px;margin-top:24px">Phím tắt: A–F chọn đáp án, Enter = kiểm tra / câu tiếp, ← → chuyển câu. Câu làm đúng trong chế độ "Làm lại câu sai" sẽ được gỡ khỏi danh sách.</p>`;
+  app.innerHTML=h;
+}
+function start(mode,i){
+  let list,title;
+  if(mode=='d'){list=Q.slice(i*SIZE,(i+1)*SIZE);title='Đề '+(i+1)}
+  else if(mode=='all'){list=document.getElementById('mix')?.checked?shuf(Q):Q;title='Tổng ôn'}
+  else if(mode=='rand'){const c=Math.max(1,Math.min(Q.length,+document.getElementById('cnt').value||40));list=shuf(Q).slice(0,c);title='Random '+c+' câu'}
+  else {list=shuf([...wrong].map(p=>byP[p]).filter(Boolean));title='Làm lại câu sai'}
+  S={mode,key:mode=='d'?'d'+i:null,title,list,i:0,ans:{},sel:''};render();
+}
+function render(){
+  const q=S.list[S.i],done=S.ans[S.i],multi=q.a.length>1&&!q.a.includes('|');
+  const right=Object.values(S.ans).filter(x=>x.ok).length,cnt=Object.keys(S.ans).length;
+  let h=`<div class="bar"><button onclick="quit()">← Về</button><b>${S.title}</b><span class="sp"></span><span>Câu ${S.i+1}/${S.list.length} · Đúng ${right}/${cnt}</span></div>
+  <div class="card" style="margin-top:12px"><img class="q" src="img/${String(q.p).padStart(3,'0')}.jpg" alt="Câu hỏi">
+  ${multi&&!done?'<div style="color:#b45309;margin-top:8px">Câu này có nhiều đáp án — chọn đủ rồi bấm Kiểm tra.</div>':''}
+  <div class="opts">`;
+  for(const c of L(q.n)){let cl='';
+    if(done){if(q.a.includes(c))cl='ok';else if(done.s.includes(c))cl='bad'}else if(S.sel.includes(c))cl='sel';
+    h+=`<button class="${cl}" onclick="pick('${c}')" ${done?'disabled':''}>${c}</button>`}
+  h+=`</div>`;
+  if(done)h+=`<div class="msg ${done.ok?'g':'r'}">${done.ok?'✔ Đúng':'✘ Sai'} — Đáp án: ${q.a?q.a.replace('|',' hoặc '):'(không có)'}</div>${note[q.p]?'<div>'+note[q.p]+'</div>':''}`;
+  h+=`<div class="bar" style="margin-top:8px"><button onclick="go(-1)" ${S.i?'':'disabled'}>← Trước</button><span class="sp"></span>
+  ${!done&&multi?'<button class="pri" onclick="check()">Kiểm tra</button>':''}
+  ${S.i<S.list.length-1?'<button class="pri" onclick="go(1)">Tiếp →</button>':'<button class="pri" onclick="finish()">Nộp / Kết quả</button>'}</div></div>
+  <div class="card"><div class="nav">${S.list.map((_,k)=>`<span class="${k==S.i?'cur ':''}${S.ans[k]?(S.ans[k].ok?'ok':'bad'):''}" onclick="jump(${k})">${k+1}</span>`).join('')}</div></div>`;
+  app.innerHTML=h;
+}
+function pick(c){const q=S.list[S.i];if(S.ans[S.i])return;
+  if(q.a.length>1&&!q.a.includes('|')){S.sel=S.sel.includes(c)?S.sel.replace(c,''):[...S.sel+c].sort().join('');render()}
+  else{S.sel=c;check()}}
+function check(){const q=S.list[S.i];if(S.ans[S.i]||!S.sel)return;const ok=isOk(q,S.sel);S.ans[S.i]={s:S.sel,ok};
+  if(!ok)wrong.add(q.p);else if(S.mode=='wrong')wrong.delete(q.p);saveW();render()}
+function go(d){jump(S.i+d)}
+function jump(k){if(k<0||k>=S.list.length)return;S.i=k;S.sel='';render();scrollTo(0,0)}
+function quit(){if(Object.keys(S.ans).length&&S.key)saveBest();home()}
+function saveBest(){const r=Object.values(S.ans).filter(x=>x.ok).length;const v=`${r}/${S.list.length}`;
+  if(best[S.key]==null||parseInt(best[S.key])<r){best[S.key]=v;sv(LB,best)}}
+function finish(){const r=Object.values(S.ans).filter(x=>x.ok).length,n=S.list.length;if(S.key)saveBest();
+  const wr=S.list.map((q,k)=>[q,k]).filter(([q,k])=>!S.ans[k]||!S.ans[k].ok);
+  app.innerHTML=`<h1>${S.title} — Kết quả</h1><div class="card"><div style="font-size:28px;font-weight:700">${r}/${n} (${Math.round(r*100/n)}%)</div>
+  <div>Chưa làm: ${n-Object.keys(S.ans).length} · Sai: ${wr.length-(n-Object.keys(S.ans).length)}</div>
+  <div class="bar" style="margin-top:10px"><button onclick="home()">Về trang chủ</button><button onclick="S.i=0;render()">Xem lại bài</button></div></div>
+  ${wr.length?'<h2>Câu sai / chưa làm</h2>'+wr.map(([q,k])=>card(q,`Câu ${k+1}`+(S.ans[k]?' · Bạn chọn '+S.ans[k].s:' · Chưa làm'))).join(''):''}`;scrollTo(0,0)}
+function card(q,t){return `<div class="card"><div class="bar"><b>${t}</b><span class="sp"></span><span class="g">Đáp án: ${q.a?q.a.replace('|',' hoặc '):'(không có)'}</span></div>
+  <img class="q" loading="lazy" style="margin-top:8px" src="img/${String(q.p).padStart(3,'0')}.jpg">${note[q.p]?'<div>'+note[q.p]+'</div>':''}</div>`}
+function review(){S=null;const l=[...wrong].map(p=>byP[p]).filter(Boolean).sort((a,b)=>a.p-b.p);
+  app.innerHTML=`<div class="bar"><button onclick="home()">← Về</button><b>Đọc lại ${l.length} câu sai</b></div><div style="margin-top:12px">`+
+  l.map(q=>card(q,'Câu #'+(Q.indexOf(q)+1)+` <button style="padding:2px 8px;margin-left:8px" onclick="wrong.delete(${q.p});saveW();review()">Đã thuộc ✓</button>`)).join('')+'</div>'}
+document.addEventListener('keydown',e=>{if(!S||e.target.tagName=='INPUT')return;const k=e.key.toUpperCase(),q=S.list[S.i];
+  if(L(q.n).includes(k))pick(k);else if(e.key=='ArrowRight')go(1);else if(e.key=='ArrowLeft')go(-1);
+  else if(e.key=='Enter'){if(!S.ans[S.i]&&S.sel)check();else if(S.i<S.list.length-1)go(1)}});
+home();
+</script></body></html>
